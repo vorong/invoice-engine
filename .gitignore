@@ -1,0 +1,14 @@
+# --- Security / Secrets ---
+.env
+.clasprc.json
+auth.json
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+
+# --- IDE / System ---
+.DS_Store
