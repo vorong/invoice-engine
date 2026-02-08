@@ -11,6 +11,10 @@
   - Native **Structured Output** for JSON extraction
   - Upgraded spatial and visual reasoning for PDF/text-box anchors.
 - **APIs:** Google Drive API v3, Google Sheets API v4
+- **Data Validation & LLM Orchestration:** Pydantic AI (v1.55+)
+    - Defines the "Data Contract" using standard Python type hints.
+    - Interfaces with Gemini 3 **Structured Outputs** for guaranteed JSON schema compliance.
+    - Utilizes `pydantic-core` (Rust-backed) for machine-speed validation of 2,500+ records.
 
 ## Constraints
 - **Execution Environment:** Project IDX VM (Managed Linux Environment).

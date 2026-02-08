@@ -27,3 +27,24 @@ The system is designed as a multi-stage funnel to reduce noise before expensive 
 - **READ-ONLY Source:** Original `.doc` files must NEVER be modified (no content changes, no metadata/timestamp updates).
 - **Idempotency:** Any stage of the pipeline must be safe to re-run from any state.
 - **Separation of Concerns:** Transcription/Extraction is strictly decoupled from Augmentation/Categorization.
+
+## Data Contract (Extraction Schema)
+Gemini 3 extractions must adhere to a strict JSON schema:
+- `invoice_number_base`: Number.
+- `invoice_number_full`: String (the base number sometimes followed by a suffix, e.g. 123-A).
+- `date`: ISO 8601 format (YYYY-MM-DD).
+- `total_amount`: Decimal/Float.
+- `line_items`: Array of objects {description, quantity, unit_price, line_total}.
+- `confidence_score`: Float (0.0 - 1.0).
+- `data_conflict`: Boolean (True if PDF and Text modes disagree).
+
+## HITL (Human-in-the-Loop) Protocol
+The Control Center Sheet is the primary interface for manual intervention:
+- **IGNORE:** Engine skips the file entirely.
+- **RE-RUN:** Engine clears previous state and re-extracts the file.
+- **VALIDATED:** Human has verified the data; engine locks the record from further updates.
+
+## Resiliency Patterns
+- **Exponential Backoff:** Use for 429 (Rate Limit) errors from Gemini/Drive APIs.
+- **Atomic Database Updates:** State must be committed to SQLite *immediately* after each successful file operation to prevent data loss on crash.
+- **Error Logging:** Failed files must be recorded in SQLite with an `error_message` and status set to `FAILED` for later triage in the Dashboard.
