@@ -6,40 +6,34 @@ This directory contains the first version (V1) of the AI-powered ETL (Extract, T
 
 ```mermaid
 graph TD
-    subgraph "Google Drive (Source)"
-        RawPDFs[Raw Invoice PDFs]
+    subgraph "Stage 1: Source & Registry"
+        A[Legacy .doc Files] --> B[FILE_REGISTRY]
+        B --> C{Conversion Engine}
+        C -->|Format 1| D[GDoc - Semantic Text]
+        C -->|Format 2| E[HTML - Tag Data]
+        C -->|Format 3| F[PDF - Visual/OCR]
     end
 
-    subgraph "Google Apps Script (Orchestrator)"
-        IC[InvoiceConversion.js]
-        IExt[InvoiceExtraction.js]
-        IExp[InvoiceExport.js]
-        Config[Config.js]
+    subgraph "Stage 2: Extraction (The Hybrid View)"
+        D & F --> G[callGeminiExtraction]
+        G --> H[INVOICE_EXTRACTION_STRUCTURED]
+        H -->|Log| I[Raw JSON Strings / Flattened Log]
     end
 
-    subgraph "Google Sheets (Data & Registry)"
-        Registry[(File Registry Spreadsheet)]
-        StructuredDB[(Structured Extraction Spreadsheet)]
-        ExportDB[(Cleaned Export Spreadsheet)]
+    subgraph "Stage 3: Normalization (Pass 1)"
+        I --> J[AI Glossary Builder]
+        J --> K1[MASTER_ORIGINS]
+        J --> K2[MASTER_CUSTOMERS]
+        J --> K3[MASTER_PRODUCTS]
     end
 
-    subgraph "External AI Services"
-        Gemini[Gemini API]
+    subgraph "Stage 4: Reconstruction (Pass 2)"
+        K1 & K2 & K3 & I --> L[runBatchInvoiceExport]
+        L --> M{Reconstruction Logic}
+        M -->|Versioning| N1[Deduplicated Invoices]
+        M -->|Hierarchy| N2[Parent-Child Line Items]
+        M -->|Data Sinking| O[ALL_INVOICE_DATA_FLAT]
     end
-
-    %% Workflow
-    RawPDFs --> IC
-    IC -->|1. Register & Convert| Registry
-    IC -->|2. Save Converted Files| RawPDFs
-    
-    Registry --> IExt
-    IExt -->|3. Fetch Text/PDF| Gemini
-    Gemini -->|4. Structured JSON| IExt
-    IExt -->|5. Save Raw Extraction| StructuredDB
-    
-    StructuredDB --> IExp
-    IExp -->|6. Cleanup & Relational Map| IExp
-    IExp -->|7. Final Ledger| ExportDB
 ```
 
 ## Overview
