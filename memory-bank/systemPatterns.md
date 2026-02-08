@@ -10,6 +10,11 @@
     - Subject line: Capitalized, imperative mood, ending with a period, short in length.
     - Body: Separated by a blank line; detailed explanation of "what" and "why."
     - Style: No prefixes (e.g., NO `feat:` or `docs:`).
+- **Continuous Documentation:** Regularly update the app documentation, especially the /memory-bank, so that the emerging design thinking is stored in a durable manner outside of transient LLM chats.
+
+## AI Communication & Control (CRITICAL)
+- **Wait for Validation:** NEVER proceed to implementation, file creation, or command execution without explicit user confirmation of the proposed design.
+- **Confirm Intent:** If a request is broad, break it into a "Plan" and ask for approval.
 
 ## Architecture: The "Deduplication Funnel"
 The system is designed as a multi-stage funnel to reduce noise before expensive extraction:
