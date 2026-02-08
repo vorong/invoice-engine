@@ -2,6 +2,7 @@
 .env
 .clasprc.json
 auth.json
+*-service-account.json
 
 # --- Python ---
 __pycache__/
@@ -12,3 +13,7 @@ venv/
 
 # --- IDE / System ---
 .DS_Store
+
+# --- Project Cache ---
+drive_cache/
+tmp/

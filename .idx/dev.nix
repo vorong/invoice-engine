@@ -8,6 +8,10 @@
     # pkgs.go
     pkgs.python314
     pkgs.uv
+    pkgs.antiword
+    pkgs.catdoc
+    pkgs.libwmf
+    pkgs.file
     # pkgs.python311Packages.pip
     # pkgs.nodejs_20
     # pkgs.nodePackages.nodemon
