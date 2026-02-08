@@ -10,7 +10,7 @@
 function setupInvoiceDataSheet() {
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID_INVOICE_DATA_EXTRACTION);
   let dataSheet = ss.getSheetByName(SHEET_NAME_INVOICE_EXTRACTION_STRUCTURED);
-  
+
   if (!dataSheet) {
     dataSheet = ss.insertSheet(SHEET_NAME_INVOICE_EXTRACTION_STRUCTURED);
   } else {
@@ -55,10 +55,13 @@ function setupInvoiceDataSheet() {
     "Invoice Type",
     "Inconsistency Level",
     "Inconsistency Notes",
-    "Math Check"
+    "Math Check",
   ];
-  
-  dataSheet.getRange(1, 1, 1, headers.length).setValues([headers]).setFontWeight("bold");
+
+  dataSheet
+    .getRange(1, 1, 1, headers.length)
+    .setValues([headers])
+    .setFontWeight("bold");
   dataSheet.setFrozenRows(1);
 }
 
@@ -73,7 +76,7 @@ function runBatchExtraction() {
   const registrySheet = ss.getSheetByName(SHEET_NAME_FILE_REGISTRY);
   const dataSheet = ss.getSheetByName(SHEET_NAME_INVOICE_EXTRACTION_STRUCTURED);
   const data = registrySheet.getDataRange().getValues();
-  
+
   let processedCount = 0;
 
   console.log("--- [START] BATCH EXTRACTION RUN ---");
@@ -91,7 +94,8 @@ function runBatchExtraction() {
 
     // 3. Process only converted files that haven't been extracted yet
     const status = data[i][COLUMN_NUMBER_FILE_REGISTRY_CONVERSION_STATUS - 1];
-    const extractionStatus = data[i][COLUMN_NUMBER_FILE_REGISTRY_EXTRACTION_STATUS - 1];
+    const extractionStatus =
+      data[i][COLUMN_NUMBER_FILE_REGISTRY_EXTRACTION_STATUS - 1];
 
     if (status === "SUCCEEDED" && extractionStatus !== "SUCCEEDED") {
       const rowNum = i + 1;
@@ -99,18 +103,22 @@ function runBatchExtraction() {
         fileName: data[i][1],
         modDate: data[i][2],
         gDocId: data[i][COLUMN_NUMBER_FILE_REGISTRY_GDOC_ID - 1],
-        pdfId: data[i][COLUMN_NUMBER_FILE_REGISTRY_PDF_ID - 1]
+        pdfId: data[i][COLUMN_NUMBER_FILE_REGISTRY_PDF_ID - 1],
       };
 
       try {
-        console.log(`\nProcessing [${processedCount + 1}]: ${fileData.fileName}`);
-        registrySheet.getRange(rowNum, COLUMN_NUMBER_FILE_REGISTRY_EXTRACTION_STATUS).setValue("STARTED");
+        console.log(
+          `\nProcessing [${processedCount + 1}]: ${fileData.fileName}`,
+        );
+        registrySheet
+          .getRange(rowNum, COLUMN_NUMBER_FILE_REGISTRY_EXTRACTION_STATUS)
+          .setValue("STARTED");
         SpreadsheetApp.flush();
 
         const json = performSingleGeminiExtraction(fileData);
-        
+
         // Flatten JSON Line Items into individual spreadsheet rows
-        const flatRows = json.line_items.map(item => [
+        const flatRows = json.line_items.map((item) => [
           fileData.fileName,
           fileData.modDate,
           json.invoice_identity.invoice_id_full,
@@ -148,24 +156,37 @@ function runBatchExtraction() {
           json.audit.invoice_type,
           json.audit.inconsistency_level,
           json.audit.inconsistency_notes,
-          json.audit.math_check
+          json.audit.math_check,
         ]);
 
         if (flatRows.length > 0) {
-          dataSheet.getRange(dataSheet.getLastRow() + 1, 1, flatRows.length, flatRows[0].length).setValues(flatRows);
+          dataSheet
+            .getRange(
+              dataSheet.getLastRow() + 1,
+              1,
+              flatRows.length,
+              flatRows[0].length,
+            )
+            .setValues(flatRows);
         }
 
-        registrySheet.getRange(rowNum, COLUMN_NUMBER_FILE_REGISTRY_EXTRACTION_STATUS).setValue("SUCCEEDED");
+        registrySheet
+          .getRange(rowNum, COLUMN_NUMBER_FILE_REGISTRY_EXTRACTION_STATUS)
+          .setValue("SUCCEEDED");
         processedCount++;
-        
+
         // Write out to Google sheets immediately
         SpreadsheetApp.flush();
-        
+
         // Short pause between successful files to respect RPM limits
         Utilities.sleep(1000);
       } catch (e) {
-        console.error(`Failed extraction for ${fileData.fileName}: ${e.toString()}`);
-        registrySheet.getRange(rowNum, COLUMN_NUMBER_FILE_REGISTRY_EXTRACTION_STATUS).setValue("FAILED");
+        console.error(
+          `Failed extraction for ${fileData.fileName}: ${e.toString()}`,
+        );
+        registrySheet
+          .getRange(rowNum, COLUMN_NUMBER_FILE_REGISTRY_EXTRACTION_STATUS)
+          .setValue("FAILED");
         SpreadsheetApp.flush();
       }
     }
@@ -181,11 +202,13 @@ function runBatchExtraction() {
 function performSingleGeminiExtraction(fileData) {
   // 1. Prepare Semantic View (Text)
   const structuredText = getDocStructureAsText(fileData.gDocId);
-  
+
   // RESTORED: Intermediate logging of the input for debugging
-  console.log(`--- [DEBUG] DATA SENT TO GEMINI (File: ${fileData.fileName}) ---`);
+  console.log(
+    `--- [DEBUG] DATA SENT TO GEMINI (File: ${fileData.fileName}) ---`,
+  );
   console.log("TEXT VIEW:\n" + structuredText);
-  
+
   // 2. Prepare Visual View (PDF)
   const pdfBase64 = getPdfBase64(fileData.pdfId);
 
@@ -276,21 +299,23 @@ RETURN ONLY FULLY EXPANDED JSON IN THIS SCHEMA:
 
   // 4. Build Payload
   const payload = {
-    contents: [{
-      parts: [
-        { text: "INVOICE STRUCTURED TEXT VIEW:\n" + structuredText },
-        {
-          inline_data: {
-            mime_type: "application/pdf",
-            data: pdfBase64
-          }
-        },
-        { text: prompt }
-      ]
-    }],
+    contents: [
+      {
+        parts: [
+          { text: "INVOICE STRUCTURED TEXT VIEW:\n" + structuredText },
+          {
+            inline_data: {
+              mime_type: "application/pdf",
+              data: pdfBase64,
+            },
+          },
+          { text: prompt },
+        ],
+      },
+    ],
     generationConfig: {
-      response_mime_type: "application/json"
-    }
+      response_mime_type: "application/json",
+    },
   };
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL_ID}:generateContent?key=${GEMINI_API_KEY}`;
@@ -298,7 +323,7 @@ RETURN ONLY FULLY EXPANDED JSON IN THIS SCHEMA:
     method: "post",
     contentType: "application/json",
     payload: JSON.stringify(payload),
-    muteHttpExceptions: true
+    muteHttpExceptions: true,
   };
 
   let response;
@@ -311,7 +336,9 @@ RETURN ONLY FULLY EXPANDED JSON IN THIS SCHEMA:
     const responseBody = response.getContentText();
 
     // RESTORED: Verbose logging of every attempt
-    console.log(`--- [DEBUG] API ATTEMPT (Code: ${responseCode}, File: ${fileData.fileName}) ---`);
+    console.log(
+      `--- [DEBUG] API ATTEMPT (Code: ${responseCode}, File: ${fileData.fileName}) ---`,
+    );
     console.log(responseBody);
 
     if (responseCode === 200) {
@@ -321,28 +348,33 @@ RETURN ONLY FULLY EXPANDED JSON IN THIS SCHEMA:
       } else {
         throw new Error("API returned 200 but content was empty.");
       }
-    } 
-    else if (responseCode === 429 || responseCode === 503) {
+    } else if (responseCode === 429 || responseCode === 503) {
       attempt++;
-      if (attempt >= maxAttempts) throw new Error(`Max retries reached for ${fileData.fileName}`);
+      if (attempt >= maxAttempts)
+        throw new Error(`Max retries reached for ${fileData.fileName}`);
 
       let waitTimeMs = attempt * 5000; // Fallback
 
       // Parse specific retry delay if provided (standard for 429s)
       try {
         const errorData = JSON.parse(responseBody);
-        const retryInfo = errorData.error.details.find(d => d["@type"] && d["@type"].includes("RetryInfo"));
+        const retryInfo = errorData.error.details.find(
+          (d) => d["@type"] && d["@type"].includes("RetryInfo"),
+        );
         if (retryInfo && retryInfo.retryDelay) {
-          waitTimeMs = (parseFloat(retryInfo.retryDelay) * 1000) + 2000;
+          waitTimeMs = parseFloat(retryInfo.retryDelay) * 1000 + 2000;
         }
       } catch (e) {
-        console.warn("Could not parse specific retry delay, using fallback backoff.");
+        console.warn(
+          "Could not parse specific retry delay, using fallback backoff.",
+        );
       }
 
-      console.warn(`Retry ${attempt}/${maxAttempts} in ${waitTimeMs/1000}s...`);
+      console.warn(
+        `Retry ${attempt}/${maxAttempts} in ${waitTimeMs / 1000}s...`,
+      );
       Utilities.sleep(waitTimeMs);
-    } 
-    else {
+    } else {
       throw new Error(`API Error ${responseCode}: ${responseBody}`);
     }
   }
@@ -357,10 +389,10 @@ function getDocStructureAsText(docId) {
   let fullText = "";
 
   const sections = [doc.getHeader(), doc.getBody(), doc.getFooter()];
-  
-  sections.forEach(container => {
+
+  sections.forEach((container) => {
     if (!container) return;
-    
+
     for (let i = 0; i < container.getNumChildren(); i++) {
       const child = container.getChild(i);
       const type = child.getType();
@@ -368,8 +400,7 @@ function getDocStructureAsText(docId) {
       if (type === DocumentApp.ElementType.PARAGRAPH) {
         const pText = child.asParagraph().getText().trim();
         if (pText) fullText += pText + "\n";
-      } 
-      else if (type === DocumentApp.ElementType.TABLE) {
+      } else if (type === DocumentApp.ElementType.TABLE) {
         const table = child.asTable();
         fullText += "\n--- TABLE START ---\n";
         for (let r = 0; r < table.getNumRows(); r++) {

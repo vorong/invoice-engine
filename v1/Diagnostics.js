@@ -6,13 +6,15 @@
 
 function debugReadHtmlOutput() {
   const folder = DriveApp.getFolderById(FOLDER_ID_INVOICE_CONVERTED_HTML);
-  const files = folder.getFiles(); 
+  const files = folder.getFiles();
   let count = 0;
-  console.log('--- START HTML DIAGNOSTIC ---');
+  console.log("--- START HTML DIAGNOSTIC ---");
   while (files.hasNext() && count < BATCH_SIZE_READ_CONVERTED_TEXT) {
     const file = files.next();
     if (file.getMimeType() === "text/html") {
-      console.log(`\n--- FILE: ${file.getName()} ---\n${file.getBlob().getDataAsString()}`); 
+      console.log(
+        `\n--- FILE: ${file.getName()} ---\n${file.getBlob().getDataAsString()}`,
+      );
       count++;
     }
   }
@@ -22,12 +24,16 @@ function debugReadConvertedText() {
   const folder = DriveApp.getFolderById(FOLDER_ID_INVOICE_CONVERTED_GDOC);
   const files = folder.getFilesByType(MimeType.GOOGLE_DOCS);
   let count = 0;
-  console.log('--- START SIMPLE TEXT DIAGNOSTIC ---');
+  console.log("--- START SIMPLE TEXT DIAGNOSTIC ---");
   while (files.hasNext() && count < BATCH_SIZE_READ_CONVERTED_TEXT) {
     const file = files.next();
     try {
-      console.log(`\n--- FILE: ${file.getName()} ---\n${DocumentApp.openById(file.getId()).getBody().getText()}`);
-    } catch (e) { console.error(`Error: ${e.toString()}`); }
+      console.log(
+        `\n--- FILE: ${file.getName()} ---\n${DocumentApp.openById(file.getId()).getBody().getText()}`,
+      );
+    } catch (e) {
+      console.error(`Error: ${e.toString()}`);
+    }
     count++;
   }
 }
@@ -55,9 +61,10 @@ function processContainer(container) {
       const p = child.asParagraph();
       let hasDrawing = false;
       for (let j = 0; j < p.getNumChildren(); j++) {
-        if (p.getChild(j).getType() === DocumentApp.ElementType.INLINE_DRAWING) hasDrawing = true;
+        if (p.getChild(j).getType() === DocumentApp.ElementType.INLINE_DRAWING)
+          hasDrawing = true;
       }
-      console.log(`${hasDrawing ? '[DRAWING] ' : ''}${p.getText()}`);
+      console.log(`${hasDrawing ? "[DRAWING] " : ""}${p.getText()}`);
     } else if (type === DocumentApp.ElementType.TABLE) {
       const table = child.asTable();
       for (let r = 0; r < table.getNumRows(); r++) {
@@ -82,16 +89,20 @@ function debugReadAdvancedJsonStructure() {
       const res = [];
       recursiveTextSearch(doc, res);
       console.log(`\n=== FILE: ${file.getName()} ===\n${res.join("")}`);
-    } catch (e) { console.error(e.toString()); }
+    } catch (e) {
+      console.error(e.toString());
+    }
     count++;
   }
 }
 
 function recursiveTextSearch(obj, results) {
-  if (obj && obj.textRun && obj.textRun.content) results.push(obj.textRun.content);
-  if (Array.isArray(obj)) obj.forEach(i => recursiveTextSearch(i, results));
-  else if (typeof obj === 'object' && obj !== null) {
-    for (let key in obj) if (obj.hasOwnProperty(key)) recursiveTextSearch(obj[key], results);
+  if (obj && obj.textRun && obj.textRun.content)
+    results.push(obj.textRun.content);
+  if (Array.isArray(obj)) obj.forEach((i) => recursiveTextSearch(i, results));
+  else if (typeof obj === "object" && obj !== null) {
+    for (let key in obj)
+      if (obj.hasOwnProperty(key)) recursiveTextSearch(obj[key], results);
   }
 }
 
@@ -102,9 +113,15 @@ function debugReadExportedPlainText() {
   while (files.hasNext() && count < BATCH_SIZE_READ_CONVERTED_TEXT) {
     const file = files.next();
     try {
-      const exportBlob = Drive.Files.export(file.getId(), 'text/plain', {alt: 'media'});
-      console.log(`\n=== FILE: ${file.getName()} ===\n${exportBlob.getDataAsString()}`);
-    } catch (e) { console.error(e.toString()); }
+      const exportBlob = Drive.Files.export(file.getId(), "text/plain", {
+        alt: "media",
+      });
+      console.log(
+        `\n=== FILE: ${file.getName()} ===\n${exportBlob.getDataAsString()}`,
+      );
+    } catch (e) {
+      console.error(e.toString());
+    }
     count++;
   }
 }
@@ -117,16 +134,18 @@ function testSingleExtraction() {
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID_INVOICE_DATA_EXTRACTION);
   const sheet = ss.getSheetByName(SHEET_NAME_FILE_REGISTRY);
   const data = sheet.getDataRange().getValues();
-  
+
   // Find the first row that is SUCCEEDED in conversion
   let targetRow = null;
   for (let i = 1; i < data.length; i++) {
-    if (data[i][COLUMN_NUMBER_FILE_REGISTRY_CONVERSION_STATUS - 1] === "SUCCEEDED") {
+    if (
+      data[i][COLUMN_NUMBER_FILE_REGISTRY_CONVERSION_STATUS - 1] === "SUCCEEDED"
+    ) {
       targetRow = {
         index: i + 1,
         fileName: data[i][1],
         gDocId: data[i][COLUMN_NUMBER_FILE_REGISTRY_GDOC_ID - 1],
-        pdfId: data[i][COLUMN_NUMBER_FILE_REGISTRY_PDF_ID - 1]
+        pdfId: data[i][COLUMN_NUMBER_FILE_REGISTRY_PDF_ID - 1],
       };
       break;
     }
@@ -144,37 +163,42 @@ function testSingleExtraction() {
     const structuredText = getDocStructureAsText(targetRow.gDocId);
     console.log("--- [DEBUG] RAW SEMANTIC TEXT VIEW ---");
     console.log(structuredText);
-    
+
     // 2. Prepare Visual View (PDF)
     const pdfBase64 = getPdfBase64(targetRow.pdfId);
-    console.log(`--- [DEBUG] PDF PREPARED (Base64 length: ${pdfBase64.length}) ---`);
+    console.log(
+      `--- [DEBUG] PDF PREPARED (Base64 length: ${pdfBase64.length}) ---`,
+    );
 
     // 3. Construct the Exploratory Prompt
-    const prompt = "I am providing a digital text representation and a visual PDF of the same invoice. " +
-                   "Please perform a deep analysis of both. Extract every piece of metadata you can find " +
-                   "(Vendor, Dates, Totals, Line Items, Tax, etc.) and return it in a structured JSON format. " +
-                   "Crucial: Ensure you find the Invoice Number, which may only be visible in the PDF drawing layer.";
-    
+    const prompt =
+      "I am providing a digital text representation and a visual PDF of the same invoice. " +
+      "Please perform a deep analysis of both. Extract every piece of metadata you can find " +
+      "(Vendor, Dates, Totals, Line Items, Tax, etc.) and return it in a structured JSON format. " +
+      "Crucial: Ensure you find the Invoice Number, which may only be visible in the PDF drawing layer.";
+
     console.log("--- [DEBUG] RAW PROMPT ---");
     console.log(prompt);
 
     // 4. Build Payload
     const payload = {
-      contents: [{
-        parts: [
-          { text: "INVOICE STRUCTURED TEXT VIEW:\n" + structuredText },
-          {
-            inline_data: {
-              mime_type: "application/pdf",
-              data: pdfBase64
-            }
-          },
-          { text: prompt }
-        ]
-      }],
+      contents: [
+        {
+          parts: [
+            { text: "INVOICE STRUCTURED TEXT VIEW:\n" + structuredText },
+            {
+              inline_data: {
+                mime_type: "application/pdf",
+                data: pdfBase64,
+              },
+            },
+            { text: prompt },
+          ],
+        },
+      ],
       generationConfig: {
-        response_mime_type: "application/json"
-      }
+        response_mime_type: "application/json",
+      },
     };
 
     // 5. Call API
@@ -183,13 +207,13 @@ function testSingleExtraction() {
       method: "post",
       contentType: "application/json",
       payload: JSON.stringify(payload),
-      muteHttpExceptions: true
+      muteHttpExceptions: true,
     };
 
     console.log("--- [DEBUG] SENDING REQUEST TO GEMINI API ---");
     const response = UrlFetchApp.fetch(url, options);
     const responseBody = response.getContentText();
-    
+
     console.log("--- [DEBUG] RAW RESPONSE FROM API ---");
     console.log(responseBody);
 
@@ -197,27 +221,32 @@ function testSingleExtraction() {
 
     if (result.candidates && result.candidates[0].content.parts[0].text) {
       const extractedJson = result.candidates[0].content.parts[0].text;
-      
+
       console.log("--- [SUCCESS] PARSED AI EXTRACTION JSON ---");
       console.log(extractedJson);
-      
+
       // Basic Validation Check for Log
       const jsonParsed = JSON.parse(extractedJson);
       // Attempt to find invoice number regardless of how Gemini named the key
       const keys = Object.keys(jsonParsed);
       let foundInv = "NOT FOUND";
-      keys.forEach(key => {
-        if (key.toLowerCase().includes("invoice") && (key.toLowerCase().includes("no") || key.toLowerCase().includes("number"))) {
+      keys.forEach((key) => {
+        if (
+          key.toLowerCase().includes("invoice") &&
+          (key.toLowerCase().includes("no") ||
+            key.toLowerCase().includes("number"))
+        ) {
           foundInv = jsonParsed[key];
         }
       });
-      
+
       console.log(`\n[FINAL VALIDATION] Detected Invoice Number: ${foundInv}`);
-
     } else {
-      console.error("API Error or No Content Returned. Response Code:", response.getResponseCode());
+      console.error(
+        "API Error or No Content Returned. Response Code:",
+        response.getResponseCode(),
+      );
     }
-
   } catch (e) {
     console.error(`Extraction Test Failed: ${e.toString()}`);
   }
@@ -234,22 +263,20 @@ function debugAuditReportingReadiness() {
   const sheet = ss.getSheetByName(SHEET_NAME_INVOICE_EXTRACTION_STRUCTURED);
   const data = sheet.getDataRange().getValues();
   const headers = data.shift();
-  
+
   // Convert the entire dataset into an array of objects.
-  const fullDataset = data.map(
-    row => {
-      let obj = {};
-      headers.forEach(
-        (h, i) => {
-          obj[h] = row[i];
-        }
-      );
-      return obj;
-    }
-  );
+  const fullDataset = data.map((row) => {
+    let obj = {};
+    headers.forEach((h, i) => {
+      obj[h] = row[i];
+    });
+    return obj;
+  });
 
   console.log("--- [START] DATA GOVERNANCE AUDIT ---");
-  console.log(`Sending the complete dataset (${fullDataset.length} rows) for architectural analysis.`);
+  console.log(
+    `Sending the complete dataset (${fullDataset.length} rows) for architectural analysis.`,
+  );
 
   const prompt = `Act as a Senior Data Governance Architect and Business Intelligence Lead.
 I have provided the COMPLETE log of extracted invoice data from 2021 to the present. 
@@ -271,32 +298,29 @@ ${JSON.stringify(fullDataset, null, 2)}`;
   try {
     const payload = {
       contents: [
-        { 
-          parts: [
-            { text: prompt }
-          ] 
-        }
-      ]
+        {
+          parts: [{ text: prompt }],
+        },
+      ],
     };
-    
+
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL_ID}:generateContent?key=${GEMINI_API_KEY}`;
     const options = {
       method: "post",
       contentType: "application/json",
       payload: JSON.stringify(payload),
-      muteHttpExceptions: true
+      muteHttpExceptions: true,
     };
-    
+
     const response = UrlFetchApp.fetch(url, options);
     const result = JSON.parse(response.getContentText());
-    
+
     if (result.candidates && result.candidates[0].content.parts[0].text) {
       const report = result.candidates[0].content.parts[0].text;
-      
+
       console.log("\n--- AI ARCHITECT REPORT START ---");
       logInChunks(report);
       console.log("--- AI ARCHITECT REPORT END ---");
-      
     } else {
       console.error("Audit failed:", response.getContentText());
     }
