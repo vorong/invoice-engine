@@ -7,8 +7,8 @@
 - **Minimal Code:** Write the minimum amount of code necessary to satisfy the current step.
 - **Standardized Style:** All code must strictly follow the **Google Python Style Guide (2026 Edition)**.
 - **Commit Standards:** Use a clean, imperative style focused on human readability:
-    - Subject line: Capitalized, imperative mood, ending with a period, short in length.
-    - Body: Separated by a blank line; detailed explanation of "what" and "why."
+    - Subject line: Capitalized, imperative mood, ending with a period (max 72 chars).
+    - Body: Separated by a blank line; detailed explanation of "what" and "why" (wrapping at 72 chars).
     - Style: No prefixes (e.g., NO `feat:` or `docs:`).
 - **Continuous Documentation:** Regularly update the app documentation, especially the /memory-bank, so that the emerging design thinking is stored in a durable manner outside of transient LLM chats.
 
@@ -27,6 +27,7 @@ The system is designed as a multi-stage funnel to reduce noise before expensive 
 - **Heartbeat Sync:** The script flushes local SQLite state to a Google Sheet Dashboard every ~10s.
 - **Hybrid Context:** Gemini receives both PDF (for layout/text boxes) and Bracketed Text (for structural table accuracy).
 - **Multi-modal Cross-Verification:** During extraction, the LLM must cross-reference findings between PDF and Text; discrepancies are flagged as 'data_conflict' for HITL review.
+- **Bracketed Representation:** Standardized text view for tables using `[ cell ]` notation, where multi-line content within cells is delineated using `<br>` tags to preserve the "One Logical Row = One Line" invariant.
 
 ## Technical Invariants
 - **READ-ONLY Source:** Original `.doc` files must NEVER be modified (no content changes, no metadata/timestamp updates).

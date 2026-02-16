@@ -1,74 +1,22 @@
 """Doc Inspector: Exploration utility to extract data from legacy .doc files.
 
-This script iterates through .doc files in a specified Google Drive folder,
-downloads them to a local cache, and extracts metadata and text for inspection.
+This script leverages the core pipeline logic to provide an interactive 
+way to inspect original documents and their parsed representations.
 """
 
 import argparse
-import os
 import subprocess
 import sys
-from pathlib import Path
 
 import olefile
-from dotenv import load_dotenv
-from google.oauth2 import service_account
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaIoBaseDownload
 
-# Load environment variables from .env file.
-load_dotenv()
-
-# Constants for Google Drive folder and local cache.
-FOLDER_ID_SOURCE_DOCS = os.getenv("FOLDER_ID_SOURCE_DOCS")
-SERVICE_ACCOUNT_FILE = os.getenv("SERVICE_ACCOUNT_CREDENTIALS_DRIVE_READER")
-CACHE_DIR = Path("drive_cache/originals")
-TMP_DIR = Path("tmp/thumbnails")
-
-# Scopes required for Google Drive API.
-SCOPES = ["https://www.googleapis.com/auth/drive.readonly"]
+from v2.common import auth, constants
+from v2.conversion import doc_parser
+from v2.discovery import drive_client
 
 
-def get_drive_service():
-    """Authenticates using a Service Account and returns the Drive API service."""
-    if not SERVICE_ACCOUNT_FILE:
-        print("Error: SERVICE_ACCOUNT_CREDENTIALS_DRIVE_READER not set in .env")
-        sys.exit(1)
-    
-    if not os.path.exists(SERVICE_ACCOUNT_FILE):
-        print(f"Error: Service account file not found: {SERVICE_ACCOUNT_FILE}")
-        sys.exit(1)
-
-    creds = service_account.Credentials.from_service_account_file(
-        SERVICE_ACCOUNT_FILE, scopes=SCOPES
-    )
-    return build("drive", "v3", credentials=creds)
-
-
-def download_file(service, file_id, destination):
-    """Downloads a file from Google Drive to the specified local path.
-
-    Args:
-        service: The Drive API service object.
-        file_id: The ID of the file to download.
-        destination: Path object representing the local destination.
-    """
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    request = service.files().get_media(fileId=file_id)
-    with open(destination, "wb") as f:
-        downloader = MediaIoBaseDownload(f, request)
-        done = False
-        while not done:
-            _, done = downloader.next_chunk()
-
-
-def inspect_doc(file_path, save_thumbnails=False):
-    """Prints OLE2 metadata and text extracted from a .doc file.
-
-    Args:
-        file_path: Path object to the .doc file.
-        save_thumbnails: Boolean, whether to save and convert binary thumbnails.
-    """
+def inspect_doc(file_path, save_thumbnails=False, width=80, output_format="text"):
+    """Prints OLE2 metadata and text extracted from a .doc file."""
     print("\n" + "=" * 80)
     print(f"FILE: {file_path.name}")
     print("=" * 80)
@@ -87,21 +35,18 @@ def inspect_doc(file_path, save_thumbnails=False):
                     if attr.lower() == "thumbnail":
                         print(f"{attr.capitalize()}: <thumbnail-binary-blob>")
                         if save_thumbnails:
-                            TMP_DIR.mkdir(parents=True, exist_ok=True)
+                            constants.THUMBNAILS_DIR.mkdir(parents=True, exist_ok=True)
                             base_name = file_path.stem
-                            wmf_path = TMP_DIR / f"{base_name}.wmf"
+                            wmf_path = constants.THUMBNAILS_DIR / f"{base_name}.wmf"
                             
-                            # Strip 16-byte wrapper if present (starts with ffffffff)
                             if isinstance(val, bytes) and val.startswith(b'\xff\xff\xff\xff'):
                                 val = val[16:]
                             
-                            # Save raw WMF
                             with open(wmf_path, "wb") as f:
                                 f.write(val)
                             print(f"  (Saved raw WMF: {wmf_path})")
 
-                            # Convert to JPG
-                            jpg_path = TMP_DIR / f"{base_name}.jpg"
+                            jpg_path = constants.THUMBNAILS_DIR / f"{base_name}.jpg"
                             subprocess.run(["wmf2gd", "-t", "jpeg", "-o", str(jpg_path), str(wmf_path)], 
                                          capture_output=True)
                             if jpg_path.exists():
@@ -114,17 +59,25 @@ def inspect_doc(file_path, save_thumbnails=False):
         print(f"Error reading OLE metadata: {e}")
 
     # 2. Text extraction via antiword.
-    print("\n--- [ TEXT (via antiword) ] ---")
+    print(f"\n--- [ TEXT (Format: {output_format}) ] ---")
     try:
-        cmd = ["antiword", str(file_path)]
+        if output_format in ["xml", "bracketed"]:
+            cmd = ["antiword", "-x", "db", str(file_path)]
+        else:
+            cmd = ["antiword", "-w", str(width), str(file_path)]
+            
         result = subprocess.run(
             cmd,
             capture_output=True,
             text=True,
             check=False
         )
+        
         if result.returncode == 0:
-            print(result.stdout)
+            if output_format == "bracketed":
+                print(doc_parser.transform_xml_to_bracketed(result.stdout))
+            else:
+                print(result.stdout)
         else:
             print(f"antiword returned an error: {result.stderr}")
     except FileNotFoundError:
@@ -142,60 +95,57 @@ def main():
                         help="Enable saving and converting binary thumbnails.")
     parser.add_argument("--batch", type=int, default=1, 
                         help="Number of files to process before waiting for input.")
+    parser.add_argument("--width", type=int, default=None,
+                        help="Width of antiword output (only valid for 'text' format).")
+    parser.add_argument("--output-format", choices=["text", "xml", "bracketed"], 
+                        default="text", help="Selection of output format.")
     args = parser.parse_args()
 
-    if not FOLDER_ID_SOURCE_DOCS:
+    if args.width is not None and args.output_format != "text":
+        parser.error("--width can only be used with --output-format text")
+    
+    width = args.width if args.width is not None else 80
+
+    if not constants.FOLDER_ID_SOURCE_DOCS:
         print("Error: FOLDER_ID_SOURCE_DOCS not set in .env")
         sys.exit(1)
 
     try:
-        service = get_drive_service()
+        service = auth.get_drive_service()
     except Exception as e:
         print(f"Failed to initialize Drive service: {e}")
         sys.exit(1)
 
     print("Fetching file list (newest first)...")
     try:
-        results = service.files().list(
-            q=f"'{FOLDER_ID_SOURCE_DOCS}' in parents and trashed = false",
-            orderBy="modifiedTime desc",
-            fields="files(id, name, modifiedTime, size)",
-            pageSize=100
-        ).execute()
+        remote_files = drive_client.list_files_in_folder(
+            service, constants.FOLDER_ID_SOURCE_DOCS)
     except Exception as e:
         print(f"Failed to fetch file list: {e}")
-        print("\nNote: Make sure you have shared the folder with the Service Account email.")
         sys.exit(1)
 
-    files = results.get("files", [])
-
-    if not files:
+    if not remote_files:
         print("No files found in the specified source folder.")
         return
 
     processed_count = 0
-    for file_info in files:
+    for file_info in remote_files:
         name = file_info["name"]
         file_id = file_info["id"]
-        mod_time = file_info["modifiedTime"]
-        
-        # Mirroring the flat structure of the source directory.
-        dest_path = CACHE_DIR / name
+        dest_path = constants.ORIGINALS_DIR / name
 
-        print(f"\nProcessing: {name}")
-        print(f"Modified: {mod_time}")
-        
         if not dest_path.exists():
-            print(f"Downloading from Drive...")
+            print(f"Downloading from Drive: {name}...")
             try:
-                download_file(service, file_id, dest_path)
+                drive_client.download_file(service, file_id, dest_path)
             except Exception as e:
                 print(f"Failed to download {name}: {e}")
                 continue
-        else:
-            print(f"Using cached file.")
-
-        inspect_doc(dest_path, save_thumbnails=args.save_thumbnails)
+        
+        inspect_doc(dest_path, 
+                    save_thumbnails=args.save_thumbnails, 
+                    width=width,
+                    output_format=args.output_format)
         processed_count += 1
 
         if processed_count >= args.batch:
