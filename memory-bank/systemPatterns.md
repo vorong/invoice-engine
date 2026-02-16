@@ -11,6 +11,7 @@
     - Body: Separated by a blank line; detailed explanation of "what" and "why" (wrapping at 72 chars).
     - Style: No prefixes (e.g., NO `feat:` or `docs:`).
 - **Continuous Documentation:** Regularly update the app documentation, especially the /memory-bank, so that the emerging design thinking is stored in a durable manner outside of transient LLM chats.
+- **README Maintenance:** Ensure the top-level README.md remains the source of truth for "Getting Started" and "Usage," keeping the most recent version information at the top.
 
 ## AI Communication & Control (CRITICAL)
 - **Wait for Validation:** NEVER proceed to implementation, file creation, or command execution without explicit user confirmation of the proposed design.
