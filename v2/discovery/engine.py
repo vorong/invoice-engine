@@ -6,14 +6,11 @@ from v2.common import auth, constants
 from v2.discovery import drive_client
 
 def _download_task(file_info):
-    """Worker function to download a single file.
-    
-    Each thread initializes its own service for thread-safety.
-    """
+    """Worker function to download a single file."""
     service = auth.get_drive_service()
     name = file_info["name"]
     file_id = file_info["id"]
-    dest_path = constants.ORIGINALS_DIR / name
+    dest_path = constants.DISCOVERED_DIR / name
     
     try:
         drive_client.download_file(service, file_id, dest_path)
@@ -25,44 +22,48 @@ def run_discovery():
     """Fetches list of remote files and downloads missing ones in parallel."""
     print("--- [ STAGE: DISCOVERY ] ---")
     
-    # 1. Listing (Sequential)
     service = auth.get_drive_service()
     print(f"Listing files in remote folder: {constants.FOLDER_ID_SOURCE_DOCS}...")
     remote_files = drive_client.list_files_in_folder(
         service, constants.FOLDER_ID_SOURCE_DOCS)
     
-    print(f"Found {len(remote_files)} files on Drive.")
+    print(f"Found {len(remote_files)} total files on Drive.")
     
-    # 2. Filtering
     to_download = []
-    skip_count = 0
+    exists_skip_count = 0
+    non_doc_count = 0
+    
     for f in remote_files:
-        if (constants.ORIGINALS_DIR / f["name"]).exists():
-            skip_count += 1
+        name = f["name"]
+        if not name.lower().endswith(".doc"):
+            non_doc_count += 1
+            # Still download it to mirror the drive
+        
+        if (constants.DISCOVERED_DIR / name).exists():
+            exists_skip_count += 1
         else:
             to_download.append(f)
     
     if not to_download:
-        print(f"Discovery Complete. All files mirrored. (Skipped: {skip_count})")
+        print(f"Discovery Complete. All files mirrored.")
+        print(f"Skipped (Already Exists): {exists_skip_count}")
+        print(f"Non-DOC Files:           {non_doc_count}")
         print("-" * 25)
         return
 
-    print(f"Found {len(to_download)} new/missing files. Starting parallel download with 25 workers...")
+    print(f"Found {len(to_download)} new/missing files. Starting parallel download...")
     
-    # 3. Parallel Downloading
     download_count = 0
     error_count = 0
-    max_workers = 25
     
-    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-        # Submit tasks
+    with concurrent.futures.ThreadPoolExecutor(max_workers=25) as executor:
         future_to_file = {executor.submit(_download_task, f): f for f in to_download}
         
         for future in concurrent.futures.as_completed(future_to_file):
             success, info = future.result()
             if success:
                 download_count += 1
-                if download_count % 25 == 0:
+                if download_count % 50 == 0:
                     print(f"Progress: [{download_count}/{len(to_download)}] Downloaded...")
             else:
                 print(f"FAILED: {info}")
@@ -70,7 +71,8 @@ def run_discovery():
             
     print(f"\nDiscovery Complete.")
     print(f"Successfully Downloaded: {download_count}")
-    print(f"Skipped (Already Exists): {skip_count}")
+    print(f"Skipped (Already Exists): {exists_skip_count}")
+    print(f"Non-DOC Files:           {non_doc_count}")
     if error_count > 0:
-        print(f"Failed Downloads: {error_count}")
+        print(f"Failed Downloads:        {error_count}")
     print("-" * 25)

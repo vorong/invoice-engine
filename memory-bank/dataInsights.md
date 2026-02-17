@@ -1,5 +1,18 @@
 # Data Insights
 
+## Messy Data Fields
+During manual exploration, certain "noise" patterns were identified in the document content:
+- **Extra Cell Content:** Occasionally, the "Date" cell index actually captures multiple lines, e.g., `[ 3 <br> 01.01.22 ]`. 
+- **Punctuation Noise:** Multiple dots sometimes appear in dates, e.g., `01..01.22`.
+- **Missing Digits:** Leading zeros are sometimes missing, e.g., `1.01.22` instead of `01.01.22`.
+
+## OLE2 Metadata Alignment
+A forensic analysis of 2,406 files revealed the relationship between `create_time` and `last_saved_time`:
+- **85.0% Exact Match:** Both timestamps are identical.
+- **8.5% Same Date, Different Time:** Likely minor edits performed on the day of creation.
+- **2.5% Different Date, Within 7 Days:** Short-term revisions or multi-day drafting.
+- **4.0% Outside 7-Day Window:** Significant gap suggesting template reuse or long-term revision cycles. The `last_saved_time` is considered the more reliable indicator of the invoice's final state.
+
 ## Revenue Streams & Business Logic
 Understanding how the business generates revenue allows the engine to categorize line items accurately.
 

@@ -2,6 +2,8 @@
 
 This script leverages the core pipeline logic to provide an interactive 
 way to inspect original documents and their parsed representations.
+All output is stored in the /tmp directory to avoid cluttering the 
+main pipeline output.
 """
 
 import argparse
@@ -35,10 +37,12 @@ def inspect_doc(file_path, save_thumbnails=False, width=80, output_format="text"
                     if attr.lower() == "thumbnail":
                         print(f"{attr.capitalize()}: <thumbnail-binary-blob>")
                         if save_thumbnails:
-                            constants.THUMBNAILS_DIR.mkdir(parents=True, exist_ok=True)
+                            constants.EXPLORATION_THUMBNAILS_DIR.mkdir(
+                                parents=True, exist_ok=True)
                             base_name = file_path.stem
-                            wmf_path = constants.THUMBNAILS_DIR / f"{base_name}.wmf"
+                            wmf_path = constants.EXPLORATION_THUMBNAILS_DIR / f"{base_name}.wmf"
                             
+                            # Strip 16-byte wrapper if present (starts with ffffffff)
                             if isinstance(val, bytes) and val.startswith(b'\xff\xff\xff\xff'):
                                 val = val[16:]
                             
@@ -46,7 +50,7 @@ def inspect_doc(file_path, save_thumbnails=False, width=80, output_format="text"
                                 f.write(val)
                             print(f"  (Saved raw WMF: {wmf_path})")
 
-                            jpg_path = constants.THUMBNAILS_DIR / f"{base_name}.jpg"
+                            jpg_path = constants.EXPLORATION_THUMBNAILS_DIR / f"{base_name}.jpg"
                             subprocess.run(["wmf2gd", "-t", "jpeg", "-o", str(jpg_path), str(wmf_path)], 
                                          capture_output=True)
                             if jpg_path.exists():
@@ -116,6 +120,9 @@ def main():
         print(f"Failed to initialize Drive service: {e}")
         sys.exit(1)
 
+    # Ensure exploration directory exists
+    constants.EXPLORATION_DOCS_DIR.mkdir(parents=True, exist_ok=True)
+
     print("Fetching file list (newest first)...")
     try:
         remote_files = drive_client.list_files_in_folder(
@@ -132,10 +139,10 @@ def main():
     for file_info in remote_files:
         name = file_info["name"]
         file_id = file_info["id"]
-        dest_path = constants.ORIGINALS_DIR / name
+        dest_path = constants.EXPLORATION_DOCS_DIR / name
 
         if not dest_path.exists():
-            print(f"Downloading from Drive: {name}...")
+            print(f"Downloading to exploration cache: {name}...")
             try:
                 drive_client.download_file(service, file_id, dest_path)
             except Exception as e:

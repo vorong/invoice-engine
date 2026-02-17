@@ -16,6 +16,7 @@ dependencies = [
 explore-doc-inspector = "v2.exploration.doc_inspector:main"
 run-discovery = "v2.discovery.engine:run_discovery"
 run-conversion = "v2.conversion.engine:run_conversion"
+run-scoping = "v2.scoping.engine:run_scoping"
 run-pipeline = "v2.main:main"
 
 [build-system]

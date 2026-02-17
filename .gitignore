@@ -14,6 +14,6 @@ venv/
 # --- IDE / System ---
 .DS_Store
 
-# --- Project Cache ---
-drive_cache/
+# --- Project Output ---
+pipeline_output/
 tmp/

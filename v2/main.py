@@ -9,6 +9,7 @@ import argparse
 import sys
 from v2.discovery import engine as discovery
 from v2.conversion import engine as conversion
+from v2.scoping import engine as scoping
 
 def main():
     """Main entry point for the V2 pipeline orchestrator."""
@@ -18,8 +19,8 @@ def main():
     parser.add_argument(
         "--stages", 
         nargs="+", 
-        choices=["discovery", "conversion"],
-        default=["discovery", "conversion"],
+        choices=["discovery", "conversion", "scoping"],
+        default=["discovery", "conversion", "scoping"],
         help="Specific stages to run (default: all)"
     )
     args = parser.parse_args()
@@ -42,6 +43,14 @@ def main():
             conversion.run_conversion()
         except Exception as e:
             print(f"CRITICAL: Conversion stage failed: {e}")
+            sys.exit(1)
+
+    # Run Scoping Stage
+    if "scoping" in args.stages:
+        try:
+            scoping.run_scoping()
+        except Exception as e:
+            print(f"CRITICAL: Scoping stage failed: {e}")
             sys.exit(1)
 
     print("\n" + "=" * 60)

@@ -1,17 +1,19 @@
 # Active Context
 
 ## Current Focus
-Phase 1 and 2 wrap-up: Finalizing the mirrored cache and bracketed text archive.
+Phase 3 wrap-up and preparing for Phase 4 (Deduplication).
 
 ## Current Task
-1.  **Git Submission:** Packaging the core pipeline infrastructure and functional stages for commit.
+1.  **Git Submission:** Packaging the scoping engine and forensic directory structure for commit.
 
 ## Recent Decisions
-- **Lockfile Policy:** Committing `uv.lock` to ensure environment reproducibility.
-- **Parallelism:** Scaled discovery engine to 25 concurrent workers for high-volume mirroring.
-- **Hygiene:** Explicitly skipping and reporting temporary Word files (`~*`) in the conversion stage.
-- **Atomic Renaming:** Implemented a temp-buffer pattern for downloads to ensure data integrity.
+- **Scoping Architecture:** Implemented a dual-branch output for the `scoped/` directory:
+  - `date_parse_status/`: Forensic view categorizing every file by date integrity and parsing difficulty.
+  - `fully_scoped/`: Production working set containing files confirmed as in-scope.
+- **Forensic Heuristics:** The scoping engine utilizes a "Label and Peek" strategy to extract dates, with fallback to OLE2 metadata for failure bucketing and conflict detection.
+- **Metadata Stamping:** All converted text files now include a standardized header with `filename`, `create_time`, and `last_saved_time`.
 
 ## System Performance
-- **Mirroring:** Successfully synchronized ~2500 documents.
-- **Parsing:** Successfully converted documents into bracketed text format with multi-line cell support via `<br>`.
+- **Mirroring:** 2417 files synchronized.
+- **Conversion:** 2406 documents transcribed with structural fidelity.
+- **Scoping:** Successfully identified the final production working set (~314 files).

@@ -28,12 +28,13 @@ The project utilizes `uv` project scripts for a streamlined CLI experience.
 ### Running the Pipeline
 The pipeline is stage-gated, ensuring each step is completed for the entire archive before proceeding.
 ```bash
-# Run the full pipeline (Discovery + Conversion)
+# Run the full pipeline (Discovery -> Conversion -> Scoping)
 uv run run-pipeline
 
 # Run specific stages
 uv run run-pipeline --stages discovery
 uv run run-pipeline --stages conversion
+uv run run-pipeline --stages scoping
 ```
 
 ### Exploration & Diagnostics
@@ -49,8 +50,8 @@ uv run explore-doc-inspector --output-format bracketed --batch 5
 ### V2: Python Pipeline (Current)
 Migrating to a robust, modular Python architecture to handle high-volume processing (~2500 files) with stateful resumption and parallel execution.
 - **Discovery:** High-speed parallel mirroring of remote Drive files with atomic write safety.
-- **Conversion:** Structural parsing using `antiword` to produce "Bracketed Text" format with `<br>` table cell fidelity.
-- **Design:** Modern ETL patterns with centralized authentication and local artifact caching.
+- **Conversion:** Structural parsing using `antiword` to produce "Bracketed Text" format with `<br>` table cell fidelity and OLE2 metadata headers.
+- **Scoping:** Forensic date extraction and dual-branch bucketing to define the active working set.
 
 ### V1: Apps Script Prototype (Legacy)
 A Google Apps Script-based prototype that proved the viability of Gemini-powered extraction.

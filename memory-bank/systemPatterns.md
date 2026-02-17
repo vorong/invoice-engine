@@ -16,6 +16,19 @@
 ## AI Communication & Control (CRITICAL)
 - **Wait for Validation:** NEVER proceed to implementation, file creation, or command execution without explicit user confirmation of the proposed design.
 - **Confirm Intent:** If a request is broad, break it into a "Plan" and ask for approval.
+- **Integrity of Work:** Do not remove or modify unrelated sections of code or documentation. Even if a section could be improved, it must remain untouched unless specifically part of the current task.
+- **No Laziness:** Do the full work. Never use placeholders like "preserving previous sections" or "rest of file." Provide complete, actionable files.
+
+## Transcription Syntax (Bracketed Text)
+To ensure structural fidelity while remaining LLM-friendly, the pipeline utilizes a standardized "Bracketed Text" format for tables:
+- **Row Delineation:** Each logical table row is represented as a single physical line of text.
+- **Cell Delineation:** Cell contents are wrapped in square brackets: `[ Cell Content ]`.
+- **Newline Delineation:** Internal line breaks within a single cell (e.g., an address or long description) are represented by the `<br>` tag.
+- **Empty Cells:** Represented as `[ EMPTY ]`.
+- **Invariant:** The format must preserve the "One Logical Row = One Line" rule to allow for machine-speed triage and unambiguous column indexing.
+
+**Example:**
+`[ SOLD TO ] [ AstraZeneca <br> 200 Cardinal Way ] [ Date ] [ 01.22.26 ]`
 
 ## Architecture: The "Deduplication Funnel"
 The system is designed as a multi-stage funnel to reduce noise before expensive extraction:
